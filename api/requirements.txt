@@ -4,7 +4,9 @@ psycopg2-binary
 SQLAlchemy
 alembic
 python-dotenv
-passlib[bcrypt]
+passlib[bcrypt]==1.7.4
+bcrypt==3.2.0
 python-jose[cryptography]
 pydantic[email]
 pydantic-settings
+python-multipart

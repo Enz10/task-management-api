@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app import schemas, crud # schemas maps to api/app/schemas, crud maps to api/app/crud
-from app.api import deps # deps maps to api/app/api/deps.py
+from app import schemas 
+from app.api import deps
+from app.crud import crud_user 
 
 router = APIRouter()
 
@@ -15,13 +16,13 @@ def create_user_endpoint(
     """
     Create new user.
     """
-    user = crud.crud_user.get_user_by_email(db, email=user_in.email)
+    user = crud_user.get_user_by_email(db, email=user_in.email)
     if user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="The user with this email already exists in the system.",
         )
-    user = crud.crud_user.create_user(db=db, user_in=user_in)
+    user = crud_user.create_user(db=db, user_in=user_in)
     return user
 
 # Add other user endpoints here later (e.g., get user, update user)

@@ -6,8 +6,6 @@ from app.core.config import settings
 if settings.DATABASE_URL is None:
     raise ValueError("DATABASE_URL is not configured properly.")
 
-# For SQLite, use check_same_thread=False
-# connect_args = {"check_same_thread": False} if "sqlite" in settings.DATABASE_URL else {}
 connect_args = {} # Add specific arguments if needed for PostgreSQL
 
 engine = create_engine(

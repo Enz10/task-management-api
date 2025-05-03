@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import uuid
 from datetime import date, datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, Field
 
 # Shared properties
 class TaskBase(BaseModel):
@@ -11,35 +13,38 @@ class TaskBase(BaseModel):
     due_date: Optional[date] = None
     completed: Optional[bool] = False
     priority: Optional[int] = None
+    # Add team_id - needed when creating a task within a team context
+    team_id: Optional[uuid.UUID] = None # Make it optional here, but required in Create
+
 
 # Properties to receive via API on creation
-# Note: owner_id will likely be set based on the authenticated user, not directly in the request body.
 class TaskCreate(TaskBase):
-    title: str # Title is required on creation
-    due_date: date # Due date is required on creation
-    owner_id: uuid.UUID # TEMPORARY: Add owner_id for now
+    title: str # Required on creation
+    due_date: date # Required on creation
+    team_id: uuid.UUID # Required on creation
 
 # Properties to receive via API on update
 class TaskUpdate(TaskBase):
-    pass # All fields in TaskBase are optional for update
+    # Fields remain optional for updates
+    # team_id and creator_id are generally not updated directly
+    pass
 
-# Properties shared by models stored in DB
+# Properties stored in DB
 class TaskInDBBase(TaskBase):
     id: uuid.UUID
-    owner_id: uuid.UUID
-    title: str # Title is always present in DB
-    due_date: date # Due date is always present in DB
-    completed: bool # Completed is always present in DB
-    is_deleted: bool # Include soft delete status
+    team_id: uuid.UUID
+    creator_id: uuid.UUID
     created_at: datetime
     updated_at: datetime
+    is_deleted: bool
 
-    # Pydantic V2 uses model_config
-    model_config = ConfigDict(from_attributes=True)
+    class Config:
+        orm_mode = True
 
 # Properties to return to client
 class Task(TaskInDBBase):
-    pass # Inherits all necessary fields
+    class Config:
+        orm_mode = True
 
 # Properties stored in DB
 class TaskInDB(TaskInDBBase):

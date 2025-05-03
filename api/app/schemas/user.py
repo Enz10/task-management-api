@@ -1,8 +1,9 @@
+from __future__ import annotations
 import uuid
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel, EmailStr
 
 # Shared properties
 class UserBase(BaseModel):
@@ -11,28 +12,28 @@ class UserBase(BaseModel):
 
 # Properties to receive via API on creation
 class UserCreate(UserBase):
-    email: EmailStr # Make email required for creation
+    email: EmailStr
     password: str
 
 # Properties to receive via API on update
 class UserUpdate(UserBase):
-    password: Optional[str] = None # Allow password update optionally
+    password: Optional[str] = None
 
-# Properties shared by models stored in DB
+# Properties stored in DB
 class UserInDBBase(UserBase):
     id: uuid.UUID
-    email: EmailStr # Email is always present in DB
-    is_active: bool # is_active is always present in DB
+    email: EmailStr
+    is_active: bool
     created_at: datetime
     updated_at: datetime
 
-    # Pydantic V2 uses model_config
-    model_config = ConfigDict(from_attributes=True) # Allows creating schema from ORM model
+    class Config:
+        orm_mode = True
 
-# Properties to return to client (doesn't include hashed_password)
+# Additional properties to return to client
 class User(UserInDBBase):
-    pass # Inherits all necessary fields from UserInDBBase
+    pass
 
-# Properties stored in DB (includes hashed_password)
+# Additional properties stored in DB
 class UserInDB(UserInDBBase):
     hashed_password: str

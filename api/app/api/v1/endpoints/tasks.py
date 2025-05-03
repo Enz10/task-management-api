@@ -1,64 +1,74 @@
 import uuid
-from typing import List, Any
+from typing import Any, List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
-from app import crud, models, schemas
+from app import models, schemas
 from app.api import deps
+from app.crud import crud_task, crud_team
+from app.models import user as models_user
 
 router = APIRouter()
+
 
 @router.post("/", response_model=schemas.Task, status_code=status.HTTP_201_CREATED)
 def create_task(
     *,
     db: Session = Depends(deps.get_db),
     task_in: schemas.TaskCreate,
-    # current_user: models.User = Depends(deps.get_current_active_user) # TODO: Add authentication
+    current_user: models_user.User = Depends(deps.get_current_active_user),
 ) -> Any:
     """
-    Create new task. TEMPORARY: Requires owner_id in request body.
+    Create new task for a specific team. User must be a member of the team.
     """
-    # TEMPORARY: Get owner from the request body and verify they exist
-    owner = crud.crud_user.get_user(db=db, user_id=task_in.owner_id)
-    if not owner:
-        raise HTTPException(
+    # Check if the target team exists
+    team = crud_team.get_team(db=db, team_id=task_in.team_id)
+    if not team:
+         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Owner with id {task_in.owner_id} not found.",
+            detail=f"Team with id {task_in.team_id} not found.",
         )
-
-    # TODO: Replace task_in.owner_id with current_user.id when auth is implemented
-    task = crud.crud_task.create_task_with_owner(db=db, task_in=task_in, owner_id=task_in.owner_id)
+    # Check if the current user is a member of the target team
+    is_member = crud_team.is_user_member_of_team(db=db, team_id=task_in.team_id, user_id=current_user.id)
+    if not is_member:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to create tasks for this team",
+        )
+    # Use the updated CRUD function, passing creator_id
+    task = crud_task.create_task(db=db, task_in=task_in, creator_id=current_user.id)
     return task
+
 
 @router.get("/", response_model=List[schemas.Task])
 def read_tasks(
+    *,
     db: Session = Depends(deps.get_db),
+    team_id: uuid.UUID = Query(..., description="The ID of the team whose tasks to retrieve"),
     skip: int = 0,
     limit: int = 100,
-    owner_id: uuid.UUID = None # TEMPORARY: Filter by owner_id query param
-    # current_user: models.User = Depends(deps.get_current_active_user), # TODO: Add authentication
-) -> Any:
+    current_user: models_user.User = Depends(deps.get_current_active_user),
+) -> List[schemas.Task]:
     """
-    Retrieve tasks. TEMPORARY: Filters by owner_id query parameter.
+    Retrieve tasks for a specific team. User must be a member of the team.
     """
-    # TODO: Remove owner_id query param and filter by current_user.id
-    if owner_id:
-        owner = crud.crud_user.get_user(db=db, user_id=owner_id)
-        if not owner:
-             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Owner with id {owner_id} not found.",
-            )
-        tasks = crud.crud_task.get_tasks_by_owner(db=db, owner_id=owner_id, skip=skip, limit=limit)
-    else:
-        # Decide what to do if no owner_id is provided (e.g., error, return all tasks - not recommended without auth)
-        # For now, let's require owner_id for this temporary setup
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="owner_id query parameter is required (temporary setup).",
+    # Check if the team exists (optional, but good practice)
+    team = crud_team.get_team(db=db, team_id=team_id)
+    if not team:
+         raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Team with id {team_id} not found.",
         )
-        # tasks = crud.crud_task.get_multi(db, skip=skip, limit=limit) # Example if get_multi existed
+    # Check if the current user is a member of the requested team
+    is_member = crud_team.is_user_member_of_team(db=db, team_id=team_id, user_id=current_user.id)
+    if not is_member:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to view tasks for this team",
+        )
+    # Use the updated CRUD function
+    tasks = crud_task.get_tasks_by_team(db=db, team_id=team_id, skip=skip, limit=limit)
     return tasks
 
 
@@ -67,16 +77,23 @@ def read_task(
     *,
     db: Session = Depends(deps.get_db),
     task_id: uuid.UUID,
-    # current_user: models.User = Depends(deps.get_current_active_user), # TODO: Add authentication
-) -> Any:
+    current_user: models_user.User = Depends(deps.get_current_active_user),
+) -> schemas.Task:
     """
-    Get task by ID.
+    Get task by ID. User must be a member of the task's team.
     """
-    task = crud.crud_task.get_task(db=db, task_id=task_id)
+    task = crud_task.get_task(db=db, task_id=task_id)
     if not task:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
-    # TODO: Add authorization check: if task.owner_id != current_user.id: raise HTTPException(...)
+    # Check if the current user is a member of the task's team
+    is_member = crud_team.is_user_member_of_team(db=db, team_id=task.team_id, user_id=current_user.id)
+    if not is_member:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this task",
+        )
     return task
+
 
 @router.put("/{task_id}", response_model=schemas.Task)
 def update_task(
@@ -84,31 +101,50 @@ def update_task(
     db: Session = Depends(deps.get_db),
     task_id: uuid.UUID,
     task_in: schemas.TaskUpdate,
-    # current_user: models.User = Depends(deps.get_current_active_user), # TODO: Add authentication
-) -> Any:
+    current_user: models_user.User = Depends(deps.get_current_active_user),
+) -> schemas.Task:
     """
-    Update a task.
+    Update a task. User must be a member of the task's team.
     """
-    db_task = crud.crud_task.get_task(db=db, task_id=task_id)
-    if not db_task:
+    task = crud_task.get_task(db=db, task_id=task_id)
+    if not task:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
-    # TODO: Add authorization check: if db_task.owner_id != current_user.id: raise HTTPException(...)
-    task = crud.crud_task.update_task(db=db, db_task=db_task, task_in=task_in)
-    return task
+    # Check if the current user is a member of the task's team
+    is_member = crud_team.is_user_member_of_team(db=db, team_id=task.team_id, user_id=current_user.id)
+    if not is_member:
+         raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to update this task",
+        )
+    # Prevent changing team_id via this endpoint - handled by create/move operations if needed
+    if hasattr(task_in, 'team_id') and task_in.team_id is not None:
+         raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot change team_id via update. Create a new task or implement a move feature.",
+        )
+    updated_task = crud_task.update_task(db=db, db_task=task, task_in=task_in)
+    return updated_task
 
-@router.delete("/{task_id}", response_model=schemas.Task)
+
+@router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_task(
     *,
     db: Session = Depends(deps.get_db),
     task_id: uuid.UUID,
-    # current_user: models.User = Depends(deps.get_current_active_user), # TODO: Add authentication
-) -> Any:
+    current_user: models_user.User = Depends(deps.get_current_active_user),
+) -> None:
     """
-    Soft delete a task.
+    Soft delete a task. User must be a member of the task's team.
     """
-    db_task = crud.crud_task.get_task(db=db, task_id=task_id)
-    if not db_task:
+    task = crud_task.get_task(db=db, task_id=task_id)
+    if not task:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
-    # TODO: Add authorization check: if db_task.owner_id != current_user.id: raise HTTPException(...)
-    task = crud.crud_task.soft_delete_task(db=db, db_task=db_task)
-    return task # Returns the task marked as deleted
+    # Check if the current user is a member of the task's team
+    is_member = crud_team.is_user_member_of_team(db=db, team_id=task.team_id, user_id=current_user.id)
+    if not is_member:
+         raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to delete this task",
+        )
+    crud_task.delete_task(db=db, task_id=task_id)
+    return None

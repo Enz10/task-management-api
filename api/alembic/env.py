@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), '..'
 from app.db.base import Base  # Import from the file that loads models
 from app.models.user import User
 from app.models.task import Task
+from app.models.team import Team
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

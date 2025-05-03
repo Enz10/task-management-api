@@ -24,8 +24,8 @@ services:
       - ./api:/app # Mount the api directory for live code reloading
     ports:
       - "8000:8000" # Map host port 8000 to container port 8000
-    environment:
-      - DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    env_file:
+      - .env # Explicitly load all variables from the root .env file
     depends_on:
       db:
         condition: service_healthy # Wait for db to be ready before starting api
