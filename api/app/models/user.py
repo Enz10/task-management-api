@@ -1,8 +1,9 @@
 import uuid
+from typing import List
 from sqlalchemy import Column, String, Boolean, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
-from sqlalchemy.orm import mapped_column, Mapped
+from sqlalchemy.orm import mapped_column, Mapped, relationship
 
 from app.db.base_class import Base
 
@@ -15,6 +16,9 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # Add the relationship to Task
+    tasks: Mapped[List["Task"]] = relationship("Task", back_populates="owner", order_by="Task.due_date")
 
     # Add __repr__ for better debugging representation if needed
     def __repr__(self):

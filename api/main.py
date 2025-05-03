@@ -1,15 +1,10 @@
 from fastapi import FastAPI
-from app.core.config import settings 
-from app.api.v1.endpoints import users 
+from app.api.v1.endpoints import users, tasks
+from app.core.config import settings
 
 app = FastAPI(title=settings.PROJECT_NAME)
 
-app.include_router(users.router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
-
-@app.get("/")
-async def read_root():
-    return {"message": f"Welcome to {settings.PROJECT_NAME}"}
-
-@app.get("/items/{item_id}")
-async def read_item(item_id: int, q: str | None = None):
-    return {"item_id": item_id, "q": q}
+# Include routers from V1 endpoints
+api_prefix = "/api/v1"
+app.include_router(users.router, prefix=f"{api_prefix}/users", tags=["users"])
+app.include_router(tasks.router, prefix=f"{api_prefix}/tasks", tags=["tasks"])

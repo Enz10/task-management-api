@@ -13,6 +13,8 @@ sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), '..'
 
 # Import Base from your project structure
 from app.db.base import Base  # Import from the file that loads models
+from app.models.user import User
+from app.models.task import Task
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
