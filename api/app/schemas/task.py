@@ -10,6 +10,7 @@ from .common import Page
 # Shared properties
 class TaskBase(BaseModel):
     title: Optional[str] = None
+    assignee_id: Optional[uuid.UUID] = Field(None, description="ID of the user this task is assigned to")
     description: Optional[str] = None
     due_date: Optional[date] = None
     completed: Optional[bool] = False

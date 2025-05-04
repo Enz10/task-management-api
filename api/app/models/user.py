@@ -10,10 +10,10 @@ from sqlalchemy.orm import mapped_column, Mapped, relationship
 from app.db.base_class import Base
 
 from .team import team_members_table
+from .task import Task
 
 if TYPE_CHECKING:
     from .team import Team  # noqa: F401
-    from .task import Task # noqa: F401
 
 
 class User(Base):
@@ -30,10 +30,17 @@ class User(Base):
         back_populates="members"
     )
 
-    created_tasks: Mapped[List["Task"]] = relationship(
+    created_tasks: Mapped[List[Task]] = relationship(
         "Task",
-        back_populates="creator"
+        back_populates="creator",
+        foreign_keys=[Task.creator_id]
+    )
+
+    assigned_tasks: Mapped[List[Task]] = relationship(
+        "Task",
+        back_populates="assignee",
+        foreign_keys=[Task.assignee_id]
     )
 
     def __repr__(self):
-        return f"<User(id={self.id!r}, email={self.email!r}, is_active={self.is_active!r})>"
+        return f"<User(email='{self.email}')>"
