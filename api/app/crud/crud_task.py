@@ -52,19 +52,35 @@ def get_tasks(db: Session) -> list[Task]:
     return db.query(Task).all()
 
 
-def get_tasks_by_team(db: Session, *, team_id: uuid.UUID, skip: int = 0, limit: int = 100) -> Tuple[List[Task], int]:
+def get_tasks_by_team(
+    db: Session,
+    *,
+    team_id: uuid.UUID,
+    skip: int = 0,
+    limit: int = 100,
+    assignee_id: Optional[uuid.UUID] = None,
+    completed: Optional[bool] = None,
+) -> Tuple[List[Task], int]:
     """
     Gets a list of tasks for a specific team with pagination and total count,
-    excluding soft-deleted tasks.
+    excluding soft-deleted tasks and applying optional filters.
     Returns a tuple: (list_of_tasks, total_count)
     """
-    base_query = db.query(Task).filter(Task.team_id == team_id, Task.is_deleted == False)
+    query = db.query(Task).filter(Task.is_deleted == False)
+    query = query.filter(Task.team_id == team_id)
 
-    # Get total count before applying limit/offset
-    total_count = base_query.with_entities(func.count(Task.id)).scalar() or 0
+    # Apply optional filters
+    if assignee_id is not None:
+        query = query.filter(Task.assignee_id == assignee_id)
+    if completed is not None:
+        # Filter based on the boolean completed field
+        query = query.filter(Task.completed == completed)
 
-    # Get the items for the current page
-    items = base_query.offset(skip).limit(limit).all()
+    # Get the total count *after* applying filters
+    total_count = query.count()
+
+    # Apply pagination and get items
+    items = query.offset(skip).limit(limit).all()
 
     return items, total_count
 

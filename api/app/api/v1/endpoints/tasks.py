@@ -1,5 +1,5 @@
 import uuid
-from typing import List
+from typing import List, Optional
 import math
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
@@ -9,7 +9,7 @@ from app import models, schemas
 from app.api import deps
 from app.crud import crud_task, crud_team
 from app.models import user as models_user
-from app.schemas.task import TaskPage, Task
+from app.schemas.task import Task, TaskCreate, TaskUpdate, TaskPage
 from app.utils.pagination import create_page
 
 router = APIRouter()
@@ -52,8 +52,11 @@ def read_tasks(
     skip: int = Query(0, ge=0, description="Number of items to skip (0-based index)"),
     limit: int = Query(100, ge=1, le=100, description="Maximum number of items per page"),
     current_user: models_user.User = Depends(deps.get_current_active_user),
+    # Optional Filters
+    assignee_id: Optional[uuid.UUID] = Query(None, description="Filter tasks by assignee user ID"),
+    completed: Optional[bool] = Query(None, description="Filter tasks by completion status (true=completed, false=pending)")
 ) -> TaskPage:
-    """Retrieve tasks for a specific team with pagination metadata. User must be a member of the team."""
+    """Retrieve tasks for a specific team with pagination and optional filters. User must be a member of the team."""
     # Check if the team exists
     team = crud_team.get_team(db=db, team_id=team_id)
     if not team:
@@ -69,9 +72,14 @@ def read_tasks(
             detail="Not authorized to view tasks for this team",
         )
 
-    # Call the updated CRUD function to get items and total count
+    # Call CRUD function to get items and total count, passing filters
     tasks_list, total_items = crud_task.get_tasks_by_team(
-        db=db, team_id=team_id, skip=skip, limit=limit
+        db=db,
+        team_id=team_id,
+        skip=skip,
+        limit=limit,
+        assignee_id=assignee_id, # Pass filter
+        completed=completed # Pass filter
     )
 
     return create_page(items=tasks_list, total_items=total_items, skip=skip, limit=limit)
