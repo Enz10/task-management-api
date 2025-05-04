@@ -1,7 +1,8 @@
 import uuid
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from app.models.task import Task
 from app.models.user import User
@@ -21,18 +22,29 @@ def create_task(db: Session, *, task_in: TaskCreate, creator_id: uuid.UUID) -> T
     db.refresh(db_task)
     return db_task
 
-def get_task(db: Session, *, task_id: uuid.UUID) -> Optional[Task]:
+def get_task(db: Session, task_id: uuid.UUID) -> Task | None:
     """Gets a specific task by ID, excluding soft-deleted tasks."""
     return db.query(Task).filter(Task.id == task_id, Task.is_deleted == False).first()
 
-def get_tasks_by_team(db: Session, *, team_id: uuid.UUID, skip: int = 0, limit: int = 100) -> List[Task]:
-    """Gets a list of tasks for a specific team, excluding soft-deleted tasks."""
-    return db.query(Task)\
-        .filter(Task.team_id == team_id, Task.is_deleted == False)\
-        .order_by(Task.due_date)\
-        .offset(skip)\
-        .limit(limit)\
-        .all()
+def get_tasks(db: Session) -> list[Task]:
+    """Retrieve all tasks (use with caution, consider pagination elsewhere)."""
+    return db.query(Task).all()
+
+def get_tasks_by_team(db: Session, *, team_id: uuid.UUID, skip: int = 0, limit: int = 100) -> Tuple[List[Task], int]:
+    """
+    Gets a list of tasks for a specific team with pagination and total count,
+    excluding soft-deleted tasks.
+    Returns a tuple: (list_of_tasks, total_count)
+    """
+    base_query = db.query(Task).filter(Task.team_id == team_id, Task.is_deleted == False)
+
+    # Get total count before applying limit/offset
+    total_count = base_query.with_entities(func.count(Task.id)).scalar() or 0
+
+    # Get the items for the current page
+    items = base_query.offset(skip).limit(limit).all()
+
+    return items, total_count
 
 def update_task(db: Session, *, db_task: Task, task_in: TaskUpdate) -> Task:
     """Updates an existing task."""

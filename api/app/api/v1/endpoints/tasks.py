@@ -1,5 +1,6 @@
 import uuid
-from typing import Any, List
+from typing import List
+import math
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
@@ -8,6 +9,8 @@ from app import models, schemas
 from app.api import deps
 from app.crud import crud_task, crud_team
 from app.models import user as models_user
+from app.schemas.task import TaskPage, Task
+from app.utils.pagination import create_page
 
 router = APIRouter()
 
@@ -18,7 +21,7 @@ def create_task(
     db: Session = Depends(deps.get_db),
     task_in: schemas.TaskCreate,
     current_user: models_user.User = Depends(deps.get_current_active_user),
-) -> Any:
+) -> schemas.Task:
     """
     Create new task for a specific team. User must be a member of the team.
     """
@@ -41,19 +44,17 @@ def create_task(
     return task
 
 
-@router.get("/", response_model=List[schemas.Task])
+@router.get("/", response_model=TaskPage)
 def read_tasks(
     *,
     db: Session = Depends(deps.get_db),
     team_id: uuid.UUID = Query(..., description="The ID of the team whose tasks to retrieve"),
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0, description="Number of items to skip (0-based index)"),
+    limit: int = Query(100, ge=1, le=100, description="Maximum number of items per page"),
     current_user: models_user.User = Depends(deps.get_current_active_user),
-) -> List[schemas.Task]:
-    """
-    Retrieve tasks for a specific team. User must be a member of the team.
-    """
-    # Check if the team exists (optional, but good practice)
+) -> TaskPage:
+    """Retrieve tasks for a specific team with pagination metadata. User must be a member of the team."""
+    # Check if the team exists
     team = crud_team.get_team(db=db, team_id=team_id)
     if not team:
          raise HTTPException(
@@ -67,9 +68,13 @@ def read_tasks(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to view tasks for this team",
         )
-    # Use the updated CRUD function
-    tasks = crud_task.get_tasks_by_team(db=db, team_id=team_id, skip=skip, limit=limit)
-    return tasks
+
+    # Call the updated CRUD function to get items and total count
+    tasks_list, total_items = crud_task.get_tasks_by_team(
+        db=db, team_id=team_id, skip=skip, limit=limit
+    )
+
+    return create_page(items=tasks_list, total_items=total_items, skip=skip, limit=limit)
 
 
 @router.get("/{task_id}", response_model=schemas.Task)

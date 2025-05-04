@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime
-from typing import Optional
+from typing import Optional, List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
+from .common import Page
 
 # Shared properties
 class TaskBase(BaseModel):
@@ -38,14 +39,18 @@ class TaskInDBBase(TaskBase):
     updated_at: datetime
     is_deleted: bool
 
-    class Config:
-        orm_mode = True
+    # Pydantic V2 configuration
+    model_config = ConfigDict(from_attributes=True)
 
 # Properties to return to client
 class Task(TaskInDBBase):
-    class Config:
-        orm_mode = True
+    # Inherits model_config from TaskInDBBase
+    pass
 
 # Properties stored in DB
 class TaskInDB(TaskInDBBase):
     pass # Currently same as TaskInDBBase
+
+# Specific instance for Tasks, inheriting from the common Page
+class TaskPage(Page[Task]):
+    pass
