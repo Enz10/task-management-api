@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 from pydantic import BaseModel
 
@@ -29,8 +29,17 @@ class TeamInDBBase(TeamBase):
         from_attributes = True
 
 
+# Schema for User representation within Team response
+class User(BaseModel):
+    id: uuid.UUID
+
+    class Config:
+        from_attributes = True
+
+
 # Additional properties to return to client
 class Team(TeamInDBBase):
+    members: List[User] = []
 
     class Config:
         orm_mode = True

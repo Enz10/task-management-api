@@ -8,9 +8,12 @@ from app.models.user import User
 from app.schemas.team import TeamCreate, TeamUpdate
 
 
-def get_team(db: Session, *, team_id: uuid.UUID) -> Optional[Team]:
-    """Gets a specific team by ID."""
-    return db.query(Team).filter(Team.id == team_id).first()
+def get_team(db: Session, *, team_id: uuid.UUID, include_deleted: bool = False) -> Optional[Team]:
+    """Gets a specific team by ID. Optionally includes soft-deleted teams."""
+    query = db.query(Team).filter(Team.id == team_id)
+    if not include_deleted:
+        query = query.filter(Team.is_deleted == False)
+    return query.first()
 
 def get_team_by_name(db: Session, *, name: str) -> Optional[Team]:
     """Gets a team by its name."""
@@ -44,11 +47,15 @@ def update_team(db: Session, *, db_team: Team, team_in: TeamUpdate) -> Team:
     return db_team
 
 def delete_team(db: Session, *, db_team: Team) -> Team:
-    """Deletes a team (hard delete for now)."""
-    # Note: Cascade delete for tasks is handled by the relationship setting
-    db.delete(db_team)
-    db.commit()
-    return db_team # Return the deleted object (transient state)
+    """Deletes a team (soft delete)."""
+    if not db_team.is_deleted:
+        db_team.is_deleted = True
+        # Optionally clear members? Or rely on filtering?
+        # For now, just mark as deleted. Associated tasks will remain.
+        db.add(db_team)
+        db.commit()
+        db.refresh(db_team)
+    return db_team
 
 def add_user_to_team(db: Session, *, db_team: Team, db_user: User) -> Team:
     """Adds a user to a team's members list if not already present."""

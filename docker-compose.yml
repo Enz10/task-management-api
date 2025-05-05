@@ -26,6 +26,12 @@ services:
       - "8000:8000" # Map host port 8000 to container port 8000
     env_file:
       - .env # Explicitly load all variables from the root .env file
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - SECRET_KEY=${SECRET_KEY}
+      - ALGORITHM=${ALGORITHM}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES}
+      - PYTHONPATH=/app
     depends_on:
       db:
         condition: service_healthy # Wait for db to be ready before starting api

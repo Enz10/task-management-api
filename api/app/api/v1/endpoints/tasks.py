@@ -159,5 +159,5 @@ def delete_task(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to delete this task",
         )
-    crud_task.delete_task(db=db, task_id=task_id)
+    crud_task.soft_delete_task(db=db, db_task=task)
     return None

@@ -1,12 +1,16 @@
 fastapi
 uvicorn[standard]
-psycopg2-binary
+psycopg2-binary==2.9.9
 SQLAlchemy
 alembic
 python-dotenv
 passlib[bcrypt]==1.7.4
 bcrypt==3.2.0
-python-jose[cryptography]
+python-jose[cryptography]==3.3.0
 pydantic[email]
-pydantic-settings
+pydantic-settings==2.2.1
 python-multipart
+
+# Testing Dependencies
+pytest>=7.0.0,<8.0.0
+httpx>=0.24.0,<0.28.0

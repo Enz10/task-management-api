@@ -42,9 +42,12 @@ def create_task(db: Session, *, task_in: TaskCreate, creator_id: uuid.UUID) -> T
     return db_task
 
 
-def get_task(db: Session, task_id: uuid.UUID) -> Task | None:
-    """Gets a specific task by ID, excluding soft-deleted tasks."""
-    return db.query(Task).filter(Task.id == task_id, Task.is_deleted == False).first()
+def get_task(db: Session, task_id: uuid.UUID, *, include_deleted: bool = False) -> Task | None:
+    """Gets a specific task by ID. Optionally includes soft-deleted tasks."""
+    query = db.query(Task).filter(Task.id == task_id)
+    if not include_deleted:
+        query = query.filter(Task.is_deleted == False)
+    return query.first()
 
 
 def get_tasks(db: Session) -> list[Task]:
@@ -123,8 +126,9 @@ def update_task(db: Session, *, db_task: Task, task_in: TaskUpdate) -> Task:
 
 def soft_delete_task(db: Session, *, db_task: Task) -> Task:
     """Marks a task as deleted (soft delete)."""
-    db_task.is_deleted = True
-    db.add(db_task)
-    db.commit()
-    db.refresh(db_task)
+    if not db_task.is_deleted:
+        db_task.is_deleted = True
+        db.add(db_task)
+        db.commit()
+        db.refresh(db_task)
     return db_task
