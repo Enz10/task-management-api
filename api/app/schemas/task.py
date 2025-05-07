@@ -4,8 +4,9 @@ import uuid
 from datetime import date, datetime
 from typing import Optional, List
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, computed_field
 from .common import Page
+from .user import User as UserSchema
 
 # Shared properties
 class TaskBase(BaseModel):
@@ -25,13 +26,9 @@ class TaskCreate(TaskBase):
     due_date: date # Required on creation
     team_id: uuid.UUID # Required on creation
 
-# Properties to receive via API on update
 class TaskUpdate(TaskBase):
-    # Fields remain optional for updates
-    # team_id and creator_id are generally not updated directly
     pass
 
-# Properties stored in DB
 class TaskInDBBase(TaskBase):
     id: uuid.UUID
     team_id: uuid.UUID
@@ -44,14 +41,27 @@ class TaskInDBBase(TaskBase):
     model_config = ConfigDict(from_attributes=True)
 
 # Properties to return to client
-class Task(TaskInDBBase):
-    # Inherits model_config from TaskInDBBase
+class Task(BaseModel):
+
+    id: uuid.UUID
+    title: Optional[str]
+    description: Optional[str]
+    due_date: date
+    completed: bool
+    priority: Optional[int]
+    team_id: uuid.UUID
+    creator_id: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
+    is_deleted: bool
+
+    assignee: Optional[UserSchema] = None
+
+    # Pydantic V2 configuration, ensuring it can be created from ORM model instance
+    model_config = ConfigDict(from_attributes=True)
+
+class TaskInDB(TaskInDBBase):
     pass
 
-# Properties stored in DB
-class TaskInDB(TaskInDBBase):
-    pass # Currently same as TaskInDBBase
-
-# Specific instance for Tasks, inheriting from the common Page
 class TaskPage(Page[Task]):
     pass

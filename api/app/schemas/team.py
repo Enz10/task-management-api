@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Optional, List
 
 from pydantic import BaseModel
+from app.schemas.user import User as UserSchema
 
 # Shared properties
 class TeamBase(BaseModel):
@@ -29,17 +30,9 @@ class TeamInDBBase(TeamBase):
         from_attributes = True
 
 
-# Schema for User representation within Team response
-class User(BaseModel):
-    id: uuid.UUID
-
-    class Config:
-        from_attributes = True
-
-
 # Additional properties to return to client
 class Team(TeamInDBBase):
-    members: List[User] = []
+    members: List[UserSchema] = []
 
     class Config:
         orm_mode = True

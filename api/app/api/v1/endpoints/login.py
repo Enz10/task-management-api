@@ -31,6 +31,6 @@ def login_access_token(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user")
 
     access_token = create_access_token(
-        subject=user.id # Using user ID as the token subject
+        subject=user.id, email=user.email
     )
     return {"access_token": access_token, "token_type": "bearer"}

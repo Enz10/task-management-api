@@ -1,7 +1,7 @@
 import uuid
 from typing import List, Optional, Tuple
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, select
 from fastapi import HTTPException, status
 
@@ -70,6 +70,7 @@ def get_tasks_by_team(
     Returns a tuple: (list_of_tasks, total_count)
     """
     query = db.query(Task).filter(Task.is_deleted == False)
+    query = query.options(joinedload(Task.assignee)) # Eager load assignee
     query = query.filter(Task.team_id == team_id)
 
     # Apply optional filters

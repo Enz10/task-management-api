@@ -1,5 +1,5 @@
 import uuid
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from sqlalchemy.orm import Session, joinedload
 
@@ -10,30 +10,34 @@ from app.schemas.team import TeamCreate, TeamUpdate
 
 def get_team(db: Session, *, team_id: uuid.UUID, include_deleted: bool = False) -> Optional[Team]:
     """Gets a specific team by ID. Optionally includes soft-deleted teams."""
-    query = db.query(Team).filter(Team.id == team_id)
-    if not include_deleted:
-        query = query.filter(Team.is_deleted == False)
+    query = db.query(Team).options(joinedload(Team.members)).filter(Team.id == team_id)
+
     return query.first()
 
 def get_team_by_name(db: Session, *, name: str) -> Optional[Team]:
     """Gets a team by its name."""
-    return db.query(Team).filter(Team.name == name).first()
+    return db.query(Team).options(joinedload(Team.members)).filter(Team.name == name).first()
 
 def get_teams(db: Session, skip: int = 0, limit: int = 100) -> List[Team]:
     """Gets a list of all teams."""
-    return db.query(Team).offset(skip).limit(limit).all()
+    return db.query(Team).options(joinedload(Team.members)).offset(skip).limit(limit).all()
+
+def get_all_teams_directly(db: Session) -> List[Team]:
+    """Gets a list of all teams directly, without pagination. Eagerly loads members."""
+    return db.query(Team).options(joinedload(Team.members)).all()
 
 def get_user_teams(db: Session, *, user_id: uuid.UUID, skip: int = 0, limit: int = 100) -> List[Team]:
     """Gets a list of teams a specific user is a member of."""
-    return db.query(Team).join(Team.members).filter(User.id == user_id).offset(skip).limit(limit).all()
+    return db.query(Team).options(joinedload(Team.members)).join(Team.members).filter(User.id == user_id).offset(skip).limit(limit).all()
 
 def create_team_with_creator(db: Session, *, team_in: TeamCreate, creator: User) -> Team:
     """Creates a new team and adds the creator as the first member."""
     db_team = Team(**team_in.model_dump())
-    db_team.members.append(creator) # Add the creator to the members list
+    db_team.members.append(creator)
     db.add(db_team)
     db.commit()
     db.refresh(db_team)
+    db.query(Team).options(joinedload(Team.members)).filter(Team.id == db_team.id).first()
     return db_team
 
 def update_team(db: Session, *, db_team: Team, team_in: TeamUpdate) -> Team:
@@ -44,17 +48,13 @@ def update_team(db: Session, *, db_team: Team, team_in: TeamUpdate) -> Team:
     db.add(db_team)
     db.commit()
     db.refresh(db_team)
+    db.query(Team).options(joinedload(Team.members)).filter(Team.id == db_team.id).first()
     return db_team
 
 def delete_team(db: Session, *, db_team: Team) -> Team:
-    """Deletes a team (soft delete)."""
-    if not db_team.is_deleted:
-        db_team.is_deleted = True
-        # Optionally clear members? Or rely on filtering?
-        # For now, just mark as deleted. Associated tasks will remain.
-        db.add(db_team)
-        db.commit()
-        db.refresh(db_team)
+    """Deletes a team."""
+    db.delete(db_team)
+    db.commit()
     return db_team
 
 def add_user_to_team(db: Session, *, db_team: Team, db_user: User) -> Team:

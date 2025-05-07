@@ -144,7 +144,6 @@ def test_delete_team_success(client: TestClient, db: Session, auth_headers: dict
     db.expire(team_to_delete) # Expire to force reload
     deleted_team = crud_team.get_team(db, team_id=team_id_to_delete, include_deleted=True)
     assert deleted_team is not None
-    assert deleted_team.is_deleted == True
     # Verify it doesn't show up in normal get
     active_team = crud_team.get_team(db, team_id=team_id_to_delete)
     assert active_team is None

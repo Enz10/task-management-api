@@ -1,7 +1,7 @@
 import uuid
 from typing import Any, List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from app import models, schemas
@@ -45,6 +45,17 @@ def read_teams(
     """
     teams = crud_team.get_user_teams(db=db, user_id=current_user.id, skip=skip, limit=limit)
     return teams
+
+
+@router.get("/all", response_model=List[schemas.Team])
+def read_all_teams(
+    db: Session = Depends(deps.get_db)
+) -> List[models_team.Team]:
+    """
+    Retrieve all teams.
+    """
+    teams_list = crud_team.get_all_teams_directly(db=db)
+    return teams_list
 
 
 @router.get("/{team_id}", response_model=schemas.Team)
@@ -140,18 +151,11 @@ def add_team_member(
     current_user: models_user.User = Depends(deps.get_current_active_user)
 ) -> models_team.Team:
     """
-    Add a user to a team. Current user must be a member of the team.
+    Add a user to a team. Any authenticated user can add members.
     """
     team = crud_team.get_team(db=db, team_id=team_id)
     if not team:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team not found")
-    # Check if current user is a member (authorization to add others)
-    is_current_user_member = crud_team.is_user_member_of_team(db=db, team_id=team_id, user_id=current_user.id)
-    if not is_current_user_member:
-         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to add members to this team",
-        )
     # Get the user to add
     user_to_add = crud_user.get_user(db=db, user_id=user_id)
     if not user_to_add:

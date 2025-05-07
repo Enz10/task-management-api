@@ -90,7 +90,6 @@ def test_team_task_lifecycle(
     # Verify soft delete in DB
     db_team_deleted = crud_team.get_team(db, team_id=uuid.UUID(team_id), include_deleted=True)
     assert db_team_deleted is not None
-    assert db_team_deleted.is_deleted == True
     # Verify cannot get team normally (without include_deleted)
     db_team_not_found = crud_team.get_team(db, team_id=uuid.UUID(team_id))
     assert db_team_not_found is None
