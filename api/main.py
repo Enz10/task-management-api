@@ -6,10 +6,7 @@ from app.core.config import settings
 app = FastAPI(title=settings.PROJECT_NAME)
 
 # Set up CORS
-origins = [
-    "http://localhost",
-    "http://localhost:3000",
-]
+origins = ["*"]  # Allow access from any URL
 
 app.add_middleware(
     CORSMiddleware,
